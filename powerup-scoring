@@ -1,0 +1,5 @@
+powerup-scoring
+
+Client -> Server
+setScaleSwitch(data) data = ["switchScale": -1/0/1, "position": -1/0/1]
+startMatch(allianceString)
