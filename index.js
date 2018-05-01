@@ -13,6 +13,17 @@ var blueOwnershipScore = 0;
 var bSwitchBlue = false;
 var bSwitchRed = false;
 var nScaleState = 0;
+//power ups
+var levitateUsed = [false, false];
+var levitateCubes = [0, 0];
+
+var forceTimes = [-1, -1];
+var forceTypes = [-1, -1];
+var forceCubes = [0, 0];
+
+var boostTypes = [-1, -1];
+var boostTimes = [-1, -1];
+var boostCubes = [0, 0];
 
 
 
@@ -26,8 +37,46 @@ http.listen(3000, function(){
 });
 
 function update(clientSocket) {
-	var blueOwnershipIncrement = (bSwitchBlue ? 1 : 0) + ((nScaleState == -1) ? 1 : 0);
-	var redOwnershipIncrement = (bSwitchRed ? 1 : 0) + ((nScaleState == 1) ? 1 : 0);
+  var blueScalePoints = ((nScaleState == -1) ? 1 : 0);
+	var blueSwitchPoints = (bSwitchBlue ? 1 : 0);
+	var redSwitchPoints = (bSwitchRed ? 1 : 0);
+  var redScalePoints = ((nScaleState == 1) ? 1 : 0);
+
+  // power ups
+  if (forceTimes[0] > 0 && forceTimes[0] <= gameTime && forceTimes[0] + 10 > gameTime) {
+    if (forceTypes[0] != 2) { // force switch
+      redSwitchPoints = 1;
+    } 
+    if (forceTypes[0] != 1) {
+      redScalePoints = 1;
+      blueScalePoints = 0;
+    }
+  } else if (boostTimes[0] > 0 && boostTimes[0] <= gameTime && boostTimes[0] + 10 > gameTime) {
+    if (boostTypes[0] != 2) { // force switch
+      redSwitchPoints *= 2;
+    } 
+    if (boostTypes[0] != 1) {
+      redScalePoints *= 2;
+    }
+  } else if (forceTimes[1] > 0 && forceTimes[1] <= gameTime && forceTimes[1] + 10 > gameTime) {
+    if (forceTypes[1] != 2) { // force switch
+      blueSwitchPoints = 1;
+    } 
+    if (forceTypes[1] != 1) {
+      blueScalePoints = 1;
+      redScalePoints = 0;
+    }
+  } else if (boostTimes[1] > 0 && boostTimes[1] <= gameTime && boostTimes[1] + 10 > gameTime) {
+    if (boostTypes[1] != 2) { // force switch
+      blueSwitchPoints *= 2;
+    } 
+    if (boostTypes[1] != 1) {
+      blueScalePoints *= 2;
+    }
+  } 
+
+  var blueOwnershipIncrement = blueScalePoints + blueSwitchPoints;
+  var redOwnershipIncrement = redScalePoints + redSwitchPoints;
 
 	if (gameTime < 15) { // auto
 		blueOwnershipScore += 2 * blueOwnershipIncrement;
@@ -37,9 +86,11 @@ function update(clientSocket) {
 		redOwnershipScore += redOwnershipIncrement;
 	}
 
-	console.log("blue:" + blueOwnershipScore);
-	console.log("red:" + redOwnershipScore);
+  var redVaultScore = 5 * (levitateCubes[0] + forceCubes[0] + boostCubes[0]);
+  var blueVaultScore = 5 * (levitateCubes[1] + forceCubes[1] + boostCubes[1]);
 
+  console.log("Red:" + redOwnershipScore + ", " +  redVaultScore);
+  console.log("Blue:" + blueOwnershipScore + ", " + blueVaultScore);
 
 	if (++gameTime >= 150) {
 		// end game
@@ -100,15 +151,42 @@ io.on('connection', function(clientSocket){
   });
 
  clientSocket.on("force", function(data) {
-    nCubes = data[0];
+    index = data[0] ? 0 : 1; // 0 if red
+    nCubes = data[1];
+    forceCubes[index] = nCubes;
+    if (forceTimes[index] < 0) { // unused
+      forceTimes[index] = getNextPowerUpTime();
+      forceTypes[index] = nCubes;
+    }
  });
+
  clientSocket.on("boost", function(data) {
-    nCubes = data[0];
+    index = data[0] ? 0 : 1; // 0 if red
+    nCubes = data[1];
+    boostCubes[index] = nCubes;
+    if (boostTimes[index] < 0) { // unused
+      boostTimes[index] = getNextPowerUpTime();
+      boostTypes[index] = nCubes;
+    }
 
  });
- clientSocket.on("levitate", function(data) {
-    nCubes = data[0];
 
+ clientSocket.on("levitate", function(data) {
+    index = data[0] ? 0 : 1; // 0 if red
+    nCubes = data[1];
+    levitateCubes[index] = nCubes;
+    if (nCubes == 3) {
+      levitateUsed[index] = true;
+    }
  });
 
 });
+
+function getNextPowerUpTime() {
+  var nextTime = gameTime;
+  for (var i = 0; i < 2; i++) {
+    nextTime = Math.max(forceTimes[i] + 10, nextTime);
+    nextTime = Math.max(boostTimes[i] + 10, nextTime);
+  }
+  return nextTime;
+}
