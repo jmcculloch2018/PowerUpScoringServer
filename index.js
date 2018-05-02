@@ -25,6 +25,19 @@ var boostTypes = [-1, -1];
 var boostTimes = [-1, -1];
 var boostCubes = [0, 0];
 
+// fouls
+var redFoulPoints = 0;
+var blueFoulPoints = 0;
+
+// climbs
+var redClimbs = 0;
+var blueClimbs = 0;
+var redParks = 0;
+var blueParks = 0;
+
+// auto
+var redCross = 0;
+var blueCross = 0;
 
 
 app.get('/', function(req, res){
@@ -86,11 +99,9 @@ function update(clientSocket) {
 		redOwnershipScore += redOwnershipIncrement;
 	}
 
-  var redVaultScore = 5 * (levitateCubes[0] + forceCubes[0] + boostCubes[0]);
-  var blueVaultScore = 5 * (levitateCubes[1] + forceCubes[1] + boostCubes[1]);
-
-  console.log("Red:" + redOwnershipScore + ", " +  redVaultScore);
-  console.log("Blue:" + blueOwnershipScore + ", " + blueVaultScore);
+  
+  console.log("Red:" + getRedScore());
+  console.log("Blue:" + getBlueScore());
 
 	if (++gameTime >= 150) {
 		// end game
@@ -99,6 +110,36 @@ function update(clientSocket) {
 		clearInterval(intervalObj);
 	}
 
+}
+
+function getRedScore() {
+  var redVaultScore = 5 * (levitateCubes[0] + forceCubes[0] + boostCubes[0]);
+  var redAutoScore = redCross * 5;
+  var redEndgame = 5 * redParks + 30 * redClimbs;
+  if (levitateUsed[0] && redClimbs < 3) {
+    if (redClimbs + redParks < 3) {
+      redEndgame += 30;
+    } else {
+      redEndgame += 25;
+    }
+  }
+  var redScore = redOwnershipScore + redVaultScore + redAutoScore + redEndgame + blueFoulPoints;
+  return redScore;
+}
+
+function getBlueScore() {
+  var blueVaultScore = 5 * (levitateCubes[1] + forceCubes[1] + boostCubes[1]);
+  var blueAutoScore = blueCross * 5;
+  var blueEndgame = 5 * blueParks + 30 * blueClimbs;
+  if (levitateUsed[1] && blueClimbs < 3) {
+    if (blueClimbs + blueParks < 3) {
+      blueEndgame += 30;
+    } else {
+      blueEndgame += 25;
+    }
+  }
+  var blueScore = blueOwnershipScore + blueVaultScore + blueAutoScore + blueEndgame + redFoulPoints;
+  return blueScore;
 }
 
 io.on('connection', function(clientSocket){
@@ -125,14 +166,50 @@ io.on('connection', function(clientSocket){
 
   clientSocket.on("start", function(data) {
     var str = data["gameString"];
-    console.log("starting:" + str);
+    
+    // reset data
     gameTime = 0;
     running = true;
+    redOwnershipScore = 0;
+    blueOwnershipScore = 0;
+    bSwitchBlue = false;
+    bSwitchRed = false;
+    nScaleState = 0;
+
+    levitateUsed = [false, false];
+    levitateCubes = [0, 0];
+
+    forceTimes = [-1, -1];
+    forceTypes = [-1, -1]; 
+    forceCubes = [0, 0];
+
+    boostTypes = [-1, -1];
+    boostTimes = [-1, -1];
+    boostCubes = [0, 0];
+
+    redFoulPoints = 0;
+    blueFoulPoints = 0;
+
+    redClimbs = 0;
+    blueClimbs = 0;
+    redParks = 0;
+    blueParks = 0;
+
+    redCross = 0;
+    blueCross = 0;
+
     intervalObj = setInterval(() => {
     	update(clientSocket);
-	}, 1000);
+	   }, 1000);
 
     io.emit("start", str);
+  });
+
+  clientSocket.on("finalize", function(data) {
+    // will eventually cause score to be displayed
+    console.log("Final Scores:");
+    console.log("Red:" + getRedScore());
+    console.log("Blue:" + getBlueScore());
   });
 
   clientSocket.on("setSwitchRed", function(data) {
@@ -148,6 +225,42 @@ io.on('connection', function(clientSocket){
  clientSocket.on("setScaleState", function(data) {
   	nScaleState = data[0];
   	io.emit("setScaleState", nScaleState);
+  });
+
+ clientSocket.on("foul", function(data) {
+    var pts = data[1] ? 25 : 5;
+    if (data[0]) {
+      redFoulPoints += pts;
+    } else {
+      blueFoulPoints += pts;
+    }
+ });
+
+ clientSocket.on("updateAutoCrosses", function(data) {
+    if (data[0]) {
+      redCross = data[1];
+    } else {
+      blueCross = data[1];
+    }
+    io.emit("updateAutoCrosses", data[0], data[1]);
+  });
+
+  clientSocket.on("updateClimbs", function(data) {
+    if (data[0]) {
+      redClimbs = data[1];
+    } else {
+      blueClimbs = data[1];
+    }
+    io.emit("updateClimbs", data[0], data[1]);
+  });
+
+  clientSocket.on("updateParks", function(data) {
+    if (data[0]) {
+      redParks = data[1];
+    } else {
+      blueParks = data[1];
+    }
+    io.emit("updateParks", data[0], data[1]);
   });
 
  clientSocket.on("force", function(data) {
