@@ -1,4 +1,5 @@
-var app = require('express')();
+var express = require('express');
+var app = express();
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
 // game vars
@@ -41,6 +42,9 @@ var blueCross = 0;
 app.get('/', function(req, res){
   res.sendfile('index.html');
 });
+
+app.use(express.static('static'));
+
 
 
 http.listen(3000, function(){
@@ -107,9 +111,9 @@ function update(clientSocket) {
   var blueScore = getBlueScore();
   console.log("Red:" + redScore);
   console.log("Blue:" + blueScore);
-  io.emit("updateScores", redScore, blueScore, levitateUsed, levitateCubes, forceActive, forceTypes, forceTimes, forceCubes, boostActive, boostTypes, boostTimes, boostCubes);
+  io.emit("updateScores", redScore, blueScore, levitateUsed, levitateCubes, forceActive, forceTypes, forceTimes, forceCubes, boostActive, boostTypes, boostTimes, boostCubes, gameTime);
 
-	if (++gameTime >= 150) {
+	if (++gameTime > 150) {
 		// end game
 		io.emit("end");
 		running = false;
