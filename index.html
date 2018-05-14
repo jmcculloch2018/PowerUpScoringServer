@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html>
+   <head>
+      <title>Power Up Scoring</title>
+   </head>
+   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+   <script src = "/socket.io/socket.io.js"></script>
+   <script>
+
+
+  //  		var canvas = document.getElementById("myCanvas");
+  //     	var ctx = canvas.getContext("2d");
+  //     	ctx.font = "30px Arial";
+		// ctx.strokeText("Hello World",10,50);
+  //     var socket = io();
+  //     socket.on('updateScores',function(redScore, blueScore) {
+
+			// $('#redScore').html(redScore);
+			// $('#blueScore').html(blueScore);
+
+         // document.getElementById('blueScore').innerHtml = blueScore;
+         // console.log("updateScores" + redScore + " " + blueScore);
+         // document.innerHtml = "";
+         // document.write("Red Score: " + redScore + "<br>Blue Score: " + blueScore);
+      // });
+   </script>
+   <body>
+		<canvas id="myCanvas" width="1482" height="200" style = "margin:0px">
+   </body>
+   <script>
+		// game vars
+		var gameTime = 0;
+		// ownership
+		var redScore = 0;
+		var blueScore = 0;
+		var bSwitchBlue = false;
+		var bSwitchRed = false;
+		var nScaleState = 0;
+		//power ups
+		var levitateUsed = [false, false];
+		var levitateCubes = [0, 0];
+
+		var forceActive = [false, false];
+		var forceTypes = [-1, -1];
+		var forceTimes = [-1, -1];
+		var forceCubes = [0, 0];
+
+		var boostActive = [false, false];
+		var boostTypes = [-1, -1];
+		var boostTimes = [-1, -1];
+		var boostCubes = [0, 0];
+
+		var c = document.getElementById("myCanvas");
+		var ctx = c.getContext("2d");
+		var backgroundImg = new Image();
+		var scaleImg = new Image();
+		var switchImg = new Image();
+		var boostImg = new Image();
+		var forceImg = new Image();
+		var levitateImg = new Image();
+		var boostSmall = new Image();
+		var forceSmall = new Image();
+		var numUnloadedImages = 8;
+		scaleImg.onload = switchImg.onload = backgroundImg.onload = boostImg.onload = 
+			forceImg.onload = levitateImg.onload = boostSmall.onload = forceSmall.onload = loadImage;
+		scaleImg.src = "./images/scale.png";
+		switchImg.src = "./images/switch.png";
+		backgroundImg.src = "./images/background.png";
+		boostImg.src = "./images/boost.png";
+		forceImg.src = "./images/force.png";
+		boostSmall.src = "./images/boost-small.png";
+		forceSmall.src = "./images/force-small.png";
+		levitateImg.src = "./images/levitate.png";
+
+		
+
+		function loadImage() {
+			if (--numUnloadedImages == 0) {
+				draw();
+			}
+		}
+
+		function getTimeRemaining() {
+			if (gameTime < 15) {
+				return 15 - gameTime;
+			} else {
+				return 150 - gameTime;
+			}
+		}
+
+		function getColor(isRed, isOwned) {
+			if (!isOwned) {
+				return '#B9B9B9';
+			} else if (isRed) {
+				return '#BD160A';
+			} else {
+				return '#256AC5';
+			}
+		}
+
+
+		function getScaleState() {
+			var scaleState = nScaleState;
+			if (forceActive[1] && forceTypes[1] >= 2) { // force blue
+				scaleState = -1;
+			} else if (forceActive[0] && forceTypes[0] >= 2) {
+				scaleState = 1;
+			}
+			return scaleState;
+		}
+
+		function getSwitchRed() {
+			var switchRed = bSwitchRed;
+			if (forceActive[0] && forceTypes[0] != 2) { // force blue
+				switchRed = true;
+			} 
+			return switchRed;
+		}
+
+		function getSwitchBlue() {
+			var switchBlue = bSwitchBlue;
+			if (forceActive[1] && forceTypes[1] != 2) { // force blue
+				switchBlue = true;
+			} 
+			return switchBlue;
+		}
+
+		function draw() {
+			ctx.drawImage(backgroundImg, 0, 0);
+			ctx.fillStyle = 'white';
+			ctx.strokeStyle = 'black';
+
+			// scores
+			ctx.lineWidth=2;
+			ctx.font = 'bold 55pt Arial';
+			ctx.textAlign="center"; 
+			ctx.textBaseline="middle"; 
+			ctx.fillText('' + blueScore, 654, 98);
+			ctx.strokeText('' + blueScore, 654, 98);
+			ctx.fillText('' + redScore, 1482 - 654, 98);
+			ctx.strokeText('' + redScore, 1482 - 654, 98);
+
+			// power ups
+			ctx.lineWidth = 3;
+			ctx.fillStyle = '#B9B9B9';
+
+			// force
+			ctx.beginPath();
+			ctx.fillStyle = getColor(false, forceTypes[1] > 0);
+			ctx.arc(70, 103, 32, 0, 2 * Math.PI);
+			ctx.fill();
+			ctx.stroke();
+			ctx.drawImage(forceImg, 70 - forceImg.width / 2, 103 - forceImg.height / 2);
+
+			ctx.beginPath();
+			ctx.fillStyle = getColor(true, forceTypes[0] > 0);
+			ctx.arc(1482 - 70, 103, 32, 0, 2 * Math.PI);
+			ctx.fill();
+			ctx.stroke();
+			ctx.drawImage(forceImg, 1482 - 70 - forceImg.width / 2, 103 - forceImg.height / 2);
+			
+			// levitate 
+			ctx.beginPath();
+			ctx.fillStyle = getColor(false, levitateUsed[1]);
+			ctx.arc(140, 57, 32, 0, 2 * Math.PI);
+			ctx.fill();
+			ctx.stroke();
+			ctx.drawImage(levitateImg, 140 - levitateImg.width / 2, 57 - levitateImg.height / 2);
+
+			ctx.beginPath();
+			ctx.fillStyle = getColor(true, levitateUsed[0]);
+			ctx.arc(1482 - 140, 57, 32, 0, 2 * Math.PI);
+			ctx.fill();
+			ctx.stroke();
+			ctx.drawImage(levitateImg, 1482 - 140 - levitateImg.width / 2, 57 - levitateImg.height / 2);
+
+			// boost
+			ctx.beginPath();
+			ctx.fillStyle = getColor(false, boostTypes[1] > 0);
+			ctx.arc(210, 103, 32, 0, 2 * Math.PI);
+			ctx.fill();
+			ctx.stroke();
+			ctx.drawImage(boostImg, 210 - boostImg.width / 2, 103 - boostImg.height / 2);
+
+			ctx.beginPath();
+			ctx.fillStyle = getColor(true, boostTypes[0] > 0);
+			ctx.arc(1482 - 210, 103, 32, 0, 2 * Math.PI);
+			ctx.fill();
+			ctx.stroke();
+			ctx.drawImage(boostImg, 1482 - 210 - boostImg.width / 2, 103 - boostImg.height / 2);
+
+			// scale / switch
+			ctx.beginPath();
+			ctx.fillStyle = getColor(false, getSwitchBlue());
+			ctx.arc(342, 78, 57, 0, Math.PI);
+			ctx.fill();
+			ctx.stroke();
+			ctx.beginPath();
+			ctx.fillStyle = getColor(false, getScaleState() == -1);
+			ctx.arc(342, 78, 57, Math.PI, 2 * Math.PI);
+			ctx.fill();
+			ctx.stroke();
+			ctx.drawImage(scaleImg, 342 - scaleImg.width / 2, 78 - scaleImg.height - 5);
+			ctx.drawImage(switchImg, 342 - switchImg.width / 2, 78 + 20);
+
+			ctx.beginPath();
+			ctx.fillStyle = getColor(true, getSwitchRed());
+			ctx.arc(1482 - 342, 78, 57, 0, Math.PI);
+			ctx.fill();
+			ctx.stroke();
+			ctx.beginPath();
+			ctx.fillStyle = getColor(true, getScaleState() == 1);
+			ctx.arc(1482 - 342, 78, 57, Math.PI, 2 * Math.PI);
+			ctx.fill();
+			ctx.stroke();
+			ctx.drawImage(scaleImg, 1482 - 342 - scaleImg.width / 2, 78 - scaleImg.height - 5);
+			ctx.drawImage(switchImg,1482 - 342 - switchImg.width / 2, 78 + 20);
+
+			// dividing line
+			ctx.lineWidth = 6;
+			ctx.beginPath();
+			ctx.moveTo(342 - 57, 78);
+			ctx.lineTo(342 + 57, 78);
+			ctx.stroke();
+
+			ctx.lineWidth = 6;
+			ctx.beginPath();
+			ctx.moveTo(1482 - 342 - 57, 78);
+			ctx.lineTo(1482 - 342 + 57, 78);
+			ctx.stroke();
+
+			// power up numbers
+			ctx.lineWidth = 3;
+			ctx.fillStyle = '#FFFFFF';
+			ctx.beginPath();
+			ctx.arc(100, 115, 20, 0, 2 * Math.PI);
+			ctx.fill();
+			ctx.stroke();
+			ctx.beginPath();
+			ctx.arc(140, 92, 20, 0, 2 * Math.PI);
+			ctx.fill();
+			ctx.stroke();
+			ctx.beginPath();
+			ctx.arc(180, 115, 20, 0, 2 * Math.PI);
+			ctx.fill();
+			ctx.stroke();
+
+			ctx.beginPath();
+			ctx.arc(1482 - 100, 115, 20, 0, 2 * Math.PI);
+			ctx.fill();
+			ctx.stroke();
+			ctx.beginPath();
+			ctx.arc(1482 - 140, 92, 20, 0, 2 * Math.PI);
+			ctx.fill();
+			ctx.stroke();
+			ctx.beginPath();
+			ctx.arc(1482 - 180, 115, 20, 0, 2 * Math.PI);
+			ctx.fill();
+			ctx.stroke();
+
+			ctx.fillStyle = 'black';
+			ctx.font = 'bold 25pt Arial';
+			ctx.fillText('' + forceCubes[1], 100, 115);
+			ctx.fillText('' + levitateCubes[1], 140, 92);
+			ctx.fillText('' + boostCubes[1], 180, 115);
+
+			ctx.fillText('' + forceCubes[0], 1482 - 100, 115);
+			ctx.fillText('' + levitateCubes[0], 1482 - 140, 92);
+			ctx.fillText('' + boostCubes[0], 1482 - 180, 115);
+
+			// time
+			ctx.fillStyle = gameTime >= 120 ? 'yellow' : 'green';
+			if (gameTime == 150) { 
+				ctx.fillStyle = 'red';
+			}
+			ctx.fillRect(568,15,342.0 * gameTime / 150,39);
+
+			ctx.fillStyle = 'rgba(185, 185, 185, 0.7)'
+			ctx.beginPath();
+			ctx.arc(1482 / 2 - 25, 35, 18, Math.PI / 2, 3 * Math.PI / 2);
+			ctx.arc(1482 / 2 + 25, 35, 18, -Math.PI / 2, Math.PI / 2);
+			ctx.fill();
+
+			ctx.fillStyle = 'black';
+			ctx.font = 'bold 25pt Arial';
+			ctx.fillText('' + getTimeRemaining(), 1482 / 2, 35);
+
+			// power up active
+			if (boostActive[0] || boostActive[1] || forceActive[0] || forceActive[1]) {
+				var isRed = boostActive[0] || forceActive[0];
+				var isBoost = boostActive[0] || boostActive[1];
+				var img = isBoost ? boostSmall : forceSmall;
+				var time = 0;
+				var type = 0;
+				if (boostActive[0]) {
+					time = boostTimes[0];
+					type = boostTypes[0];
+				} else if (boostActive[1]) {
+					time = boostTimes[1];
+					type = boostTypes[1];
+				} else if (forceActive[0]) {
+					time = forceTimes[0];
+					types = forceTypes[0];
+				} else {
+					time = forceTimes[1];
+					types = forceTypes[1];
+				}
+				ctx.fillStyle = getColor(isRed, true);
+
+				ctx.beginPath();
+				ctx.arc(1482 / 2 + 13, 98 + 30, 5, 0, Math.PI / 2);
+				ctx.arc(1482 / 2 - 13, 98 + 30, 5, Math.PI / 2, Math.PI);
+				ctx.arc(1482 / 2 - 13, 98 - 30, 5, Math.PI, 3 * Math.PI / 2);
+				ctx.arc(1482 / 2 + 13, 98 - 30, 5, -Math.PI / 2, 0);
+				ctx.arc(1482 / 2 + 13, 98 + 30, 5, 0, Math.PI / 2);
+				ctx.fill();
+				ctx.stroke();
+
+				var x = isRed ? 1482 - 397 : 397;
+
+				ctx.lineWidth = 3; 
+				if (type != 1 && getScaleState() == (isRed ? 1 : -1)) {
+					ctx.beginPath();
+					ctx.arc(x, 42, 19, 0, 2 * Math.PI);
+					ctx.fill();
+					ctx.stroke();
+					ctx.drawImage(boostSmall, x - boostSmall.width / 2, 42 - boostSmall.height / 2);
+
+				}
+
+				if (type != 2 && isRed ? getSwitchRed() : getSwitchBlue()) {
+					ctx.beginPath();
+					ctx.arc(x, 2 * 78 - 42, 19, 0, 2 * Math.PI);
+					ctx.fill();
+					ctx.stroke();
+					ctx.drawImage(boostSmall, x - boostSmall.width / 2, 2 * 78 - 42 - boostSmall.height / 2);
+				}
+				
+				ctx.drawImage(img, 1482 / 2 - img.width / 2, 98 - img.height + 30);
+				ctx.fillStyle = 'white';
+				ctx.lineWidth = 2;
+				ctx.font = 'bold 25pt Arial';
+				ctx.fillText('' + (10 + time - gameTime), 1482 / 2, 98 - 15)
+				ctx.strokeText('' + (10 + time - gameTime), 1482 / 2, 98 - 15);
+
+			}
+			
+
+			
+
+			
+
+		}
+
+	</script>
+</html>

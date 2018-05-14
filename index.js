@@ -1,8 +1,6 @@
 var app = require('express')();
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
-// var userList = [];
-// var typingUsers = {};
 // game vars
 var running = false;
 var gameTime = 0;
@@ -12,7 +10,7 @@ var redOwnershipScore = 0;
 var blueOwnershipScore = 0;
 var bSwitchBlue = false;
 var bSwitchRed = false;
-var nScaleState = 0;
+var nScaleState = 0; // -1 = blue, 1 = red
 //power ups
 var levitateUsed = [false, false];
 var levitateCubes = [0, 0];
@@ -21,7 +19,7 @@ var forceTimes = [-1, -1];
 var forceTypes = [-1, -1];
 var forceCubes = [0, 0];
 
-var boostTypes = [-1, -1];
+var boostTypes = [-1, -1]; // [r, b]
 var boostTimes = [-1, -1];
 var boostCubes = [0, 0];
 
@@ -41,7 +39,7 @@ var blueCross = 0;
 
 
 app.get('/', function(req, res){
-  res.send('<h1>AppCoda - SocketChat Server</h1>');
+  res.sendfile('index.html');
 });
 
 
@@ -54,6 +52,8 @@ function update(clientSocket) {
 	var blueSwitchPoints = (bSwitchBlue ? 1 : 0);
 	var redSwitchPoints = (bSwitchRed ? 1 : 0);
   var redScalePoints = ((nScaleState == 1) ? 1 : 0);
+  var forceActive = [false, false];
+  var boostActive = [false, false];
 
   // power ups
   if (forceTimes[0] > 0 && forceTimes[0] <= gameTime && forceTimes[0] + 10 > gameTime) {
@@ -64,6 +64,7 @@ function update(clientSocket) {
       redScalePoints = 1;
       blueScalePoints = 0;
     }
+    forceActive[0] = true;
   } else if (boostTimes[0] > 0 && boostTimes[0] <= gameTime && boostTimes[0] + 10 > gameTime) {
     if (boostTypes[0] != 2) { // force switch
       redSwitchPoints *= 2;
@@ -71,6 +72,7 @@ function update(clientSocket) {
     if (boostTypes[0] != 1) {
       redScalePoints *= 2;
     }
+    boostActive[0] = true;
   } else if (forceTimes[1] > 0 && forceTimes[1] <= gameTime && forceTimes[1] + 10 > gameTime) {
     if (forceTypes[1] != 2) { // force switch
       blueSwitchPoints = 1;
@@ -79,6 +81,7 @@ function update(clientSocket) {
       blueScalePoints = 1;
       redScalePoints = 0;
     }
+    forceActive[1] = true;
   } else if (boostTimes[1] > 0 && boostTimes[1] <= gameTime && boostTimes[1] + 10 > gameTime) {
     if (boostTypes[1] != 2) { // force switch
       blueSwitchPoints *= 2;
@@ -86,6 +89,7 @@ function update(clientSocket) {
     if (boostTypes[1] != 1) {
       blueScalePoints *= 2;
     }
+    boostActive[1] = true;
   } 
 
   var blueOwnershipIncrement = blueScalePoints + blueSwitchPoints;
@@ -99,9 +103,11 @@ function update(clientSocket) {
 		redOwnershipScore += redOwnershipIncrement;
 	}
 
-  
-  console.log("Red:" + getRedScore());
-  console.log("Blue:" + getBlueScore());
+  var redScore = getRedScore();
+  var blueScore = getBlueScore();
+  console.log("Red:" + redScore);
+  console.log("Blue:" + blueScore);
+  io.emit("updateScores", redScore, blueScore, levitateUsed, levitateCubes, forceActive, forceTypes, forceTimes, forceCubes, boostActive, boostTypes, boostTimes, boostCubes);
 
 	if (++gameTime >= 150) {
 		// end game
@@ -147,20 +153,6 @@ io.on('connection', function(clientSocket){
 
   clientSocket.on('disconnect', function(){
     console.log('user disconnected');
-
-    // var clientNickname;
-    // for (var i=0; i<userList.length; i++) {
-    //   if (userList[i]["id"] == clientSocket.id) {
-    //     userList[i]["isConnected"] = false;
-    //     clientNickname = userList[i]["nickname"];
-    //     break;
-    //   }
-    // }
-
-    // delete typingUsers[clientNickname];
-    // io.emit("userList", userList);
-    // io.emit("userExitUpdate", clientNickname);
-    // io.emit("userTypingUpdate", typingUsers);
   });
 
 
