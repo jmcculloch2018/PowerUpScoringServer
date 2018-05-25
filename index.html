@@ -10,51 +10,17 @@
 
    </script>
    <body>
-		<canvas id="myCanvas" width="1482" height="200" style = "margin:0px">
+		<canvas id="myCanvas" width="1482" height="827" style = "margin:0px">
    </body>
    <script>
+		// global vars
+		var matchScreen = true;
+		var videoEnded = false;
 
-
-  //  		var canvas = document.getElementById("myCanvas");
-  //     	var ctx = canvas.getContext("2d");
-  //     	ctx.font = "30px Arial";
-		// ctx.strokeText("Hello World",10,50);
-      var socket = io();
-      socket.on('updateScores',function(_redScore, _blueScore, _levitateUsed, _levitateCubes, _forceActive, _forceTypes, _forceTimes, _forceCubes, _boostActive, _boostTypes, _boostTimes, _boostCubes, _gameTime) {
-      	redScore = _redScore;
-      	blueScore = _blueScore;
-      	levitateUsed = _levitateUsed;
-      	levitateCubes = _levitateCubes;
-      	forceActive = _forceActive;
-      	forceTypes = _forceTypes;
-      	forceTimes = _forceTimes;
-      	forceCubes = _forceCubes;
-      	boostActive = _boostActive;
-      	boostTypes = _boostTypes;
-      	boostTimes = _boostTimes;
-      	boostCubes = _boostCubes;
-      	gameTime = _gameTime;
-      	draw();
-      });
-      socket.on('end', function() {
-      	gameTime = 150;
-      	draw();
-      });
-      socket.on('setSwitchRed', function(_switchRed) {
-      	bSwitchRed = _switchRed;
-   		draw();
-      });
-      socket.on('setSwitchBlue', function(_switchBlue) {
-      	bSwitchBlue = _switchBlue;
-   		draw();
-      });
-      socket.on('setScaleState', function(_scaleState) {
-      	nScaleState = _scaleState;
-   		draw();
-      });
-
-		// game vars
-		var gameTime = 0;
+		var gameTime = -4;
+		// teams
+		var redTeams = [0, 0, 0];
+		var blueTeams = [0, 0, 0];
 		// ownership
 		var redScore = 0;
 		var blueScore = 0;
@@ -75,8 +41,142 @@
 		var boostTimes = [-1, -1];
 		var boostCubes = [0, 0];
 
-		var c = document.getElementById("myCanvas");
-		var ctx = c.getContext("2d");
+		// finalize
+		var redAuto = 0;
+		var redEndgame = 0;
+		var redOwnership = 274;
+		var redVault = 0;
+		var redFoul = 0;
+
+		var blueAuto = 0;
+		var blueEndgame = 0;
+		var blueOwnership = 0;
+		var blueVault = 0;
+		var blueFoul = 0;	
+
+		var blueScore;
+		var redScore;
+
+		var video;
+
+		// respond to changes
+	    var socket = io();
+	    socket.on('updateScores',function(_redScore, _blueScore, _levitateUsed, _levitateCubes, _forceActive, _forceTypes, _forceTimes, _forceCubes, _boostActive, _boostTypes, _boostTimes, _boostCubes, _gameTime) {
+	      	redScore = _redScore;
+	      	blueScore = _blueScore;
+	      	levitateUsed = _levitateUsed;
+	      	levitateCubes = _levitateCubes;
+	      	forceActive = _forceActive;
+	      	forceTypes = _forceTypes;
+	      	forceTimes = _forceTimes;
+	      	forceCubes = _forceCubes;
+	      	boostActive = _boostActive;
+	      	boostTypes = _boostTypes;
+	      	boostTimes = _boostTimes;
+	      	boostCubes = _boostCubes;
+	      	gameTime = _gameTime;
+	      	if (gameTime == 0) {
+	      		var audio = new Audio('./audio/match_start.wav');
+				audio.play();
+	      	} else if (gameTime == 15) {
+				var audio = new Audio('./audio/match_resume.wav');
+				audio.play();
+	      	} else if (gameTime == 120) {
+				var audio = new Audio('./audio/match_endgame.wav');
+				audio.play();
+	      	}
+	      	
+	      	// draw();
+	    });
+
+	    socket.on('finalize',function(_redAuto, _redEndgame, _redOwnership, _redVault, _redFoul, _blueAuto, _blueEndgame, _blueOwnership, _blueVault, _blueFoul) {
+
+	      	redAuto = _redAuto;
+	      	redEndgame = _redEndgame;
+	      	redOwnership = _redOwnership;
+	      	redVault = _redVault;
+	      	redFoul = _redFoul;
+
+	      	blueAuto = _blueAuto;
+	      	blueEndgame = _blueEndgame;
+	      	blueOwnership = _blueOwnership;
+	      	blueVault = _blueVault;
+	      	blueFoul = _blueFoul;
+
+	      	redScore = redAuto + redVault + redOwnership + redEndgame + blueFoul;
+	      	blueScore = blueAuto + blueVault + blueOwnership + blueEndgame + redFoul;
+	      	var isRed = (redScore > blueScore);
+	      	loadVideo(isRed);
+	    });
+
+	    socket.on('reset', function(data) {
+
+	    	 redTeams = [data[0], data[1], data[2]];
+    		blueTeams = [data[3], data[4], data[5]];
+			// global vars
+			matchScreen = true;
+			videoEnded = false;
+
+			gameTime = -4;
+			// ownership
+			redScore = 0;
+			blueScore = 0;
+			bSwitchBlue = false;
+			bSwitchRed = false;
+			nScaleState = 0;
+			//power ups
+			levitateUsed = [false, false];
+			levitateCubes = [0, 0];
+
+			forceActive = [false, false];
+			forceTypes = [-1, -1];
+			forceTimes = [-1, -1];
+			forceCubes = [0, 0];
+
+			boostActive = [false, false];
+			boostTypes = [-1, -1];
+			boostTimes = [-1, -1];
+			boostCubes = [0, 0];
+
+			// finalize
+			redAuto = 0;
+			redEndgame = 0;
+			redOwnership = 274;
+			redVault = 0;
+			redFoul = 0;
+
+			blueAuto = 0;
+			blueEndgame = 0;
+			blueOwnership = 0;
+			blueVault = 0;
+			blueFoul = 0;
+			requestAnimationFrame(updateCanvas);
+
+	    });
+
+
+	    socket.on('end', function() {
+	      	gameTime = 150;
+	      	var audio = new Audio('./audio/match_end.wav');
+			audio.play();
+	      	// draw();
+	    });
+	    socket.on('setSwitchRed', function(_switchRed) {
+	      	bSwitchRed = _switchRed;
+	   		// draw();
+	    });
+	    socket.on('setSwitchBlue', function(_switchBlue) {
+	      	bSwitchBlue = _switchBlue;
+	   		// draw();
+	    });
+	    socket.on('setScaleState', function(_scaleState) {
+	      	nScaleState = _scaleState;
+	   		// draw();
+	    });
+
+		
+
+	    // load images
 		var backgroundImg = new Image();
 		var scaleImg = new Image();
 		var switchImg = new Image();
@@ -85,9 +185,9 @@
 		var levitateImg = new Image();
 		var boostSmall = new Image();
 		var forceSmall = new Image();
-		var numUnloadedImages = 8;
-		scaleImg.onload = switchImg.onload = backgroundImg.onload = boostImg.onload = 
-			forceImg.onload = levitateImg.onload = boostSmall.onload = forceSmall.onload = loadImage;
+		var finalScoreImg = new Image();
+		var numUnloadedImages = 9;
+		finalScoreImg.src = "./images/final-score.png";
 		scaleImg.src = "./images/scale.png";
 		switchImg.src = "./images/switch.png";
 		backgroundImg.src = "./images/background.png";
@@ -97,69 +197,208 @@
 		forceSmall.src = "./images/force-small.png";
 		levitateImg.src = "./images/levitate.png";
 
-
-
-		function loadImage() {
-			if (--numUnloadedImages == 0) {
-				draw();
-			}
+		// create canvas
+		var canvas = document.getElementById("myCanvas");
+		var ctx = canvas.getContext("2d");
+		var streamContainer; // object to hold video and associated info
+		var videoContainer;
+		var stream = document.createElement("video"); // create a video element 
+		navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia || navigator.oGetUserMedia;
+		 
+		if (navigator.getUserMedia) {       
+		    navigator.getUserMedia({video: true}, handleVideo, videoError);
+		}
+		 
+		function handleVideo(url) {
+		    stream.src = window.URL.createObjectURL(url);
+		}
+		 
+		function videoError(e) { }
+		stream.autoplay = true; // ensure that the video does not auto play
+		stream.muted = false;
+		streamContainer = {  // we will add properties as needed
+		     video : stream,
+		     ready : false,   
+		};
+		stream.oncanplay = readyToStream; 
+		function readyToStream(event) { 
+		    streamContainer.scale = canvas.width / this.videoWidth;
+		    streamContainer.ready = true;
+		    requestAnimationFrame(updateCanvas);
 		}
 
-		function getTimeRemaining() {
-			if (gameTime < 15) {
-				return 15 - gameTime;
+		function updateCanvas() {
+			if (matchScreen) {
+			    if(streamContainer !== undefined && streamContainer.ready){ 
+					ctx.clearRect(0,0,canvas.width,canvas.height); 
+			        drawMatchScreen();
+			    }
+			    requestAnimationFrame(updateCanvas);
+			} else if (!videoEnded) {
+				ctx.clearRect(0,0,canvas.width,canvas.height); 
+				// console.log("something");
+			    if(videoContainer !== undefined && videoContainer.ready){ 
+			    	// if (video.paused) {
+			    	// 	video.play();
+			    	// 	// video.loop = false;
+			    	// }
+			        var scale = videoContainer.scale;
+			        var vidH = videoContainer.video.videoHeight;
+			        var vidW = videoContainer.video.videoWidth;
+			        var top = canvas.height / 2 - (vidH /2 ) * scale;
+			        var left = canvas.width / 2 - (vidW /2 ) * scale;
+			        ctx.drawImage(videoContainer.video, left, top, vidW * scale, vidH * scale);
+			    }
+			    requestAnimationFrame(updateCanvas);
 			} else {
-				return 150 - gameTime;
+				ctx.clearRect(0,0,canvas.width,canvas.height); 
+				drawResultsScreen();
 			}
 		}
 
-		function getColor(isRed, isOwned) {
-			if (!isOwned) {
-				return '#B9B9B9';
-			} else if (isRed) {
-				return '#BD160A';
-			} else {
-				return '#256AC5';
-			}
+		function loadVideo(isRed) {
+			video = document.createElement("video"); // create a video element
+			video.src = isRed ? "./videos/red-victory.mp4" : "./videos/blue-victory.mp4";
+			video.autoplay = true;
+			video.loop = false; // set the video to loop.
+			video.muted = false;
+			videoContainer = {  // we will add properties as needed
+			     video : video,
+			     ready : false,   
+			};
+			video.oncanplay = readyToPlayVideo; // set the event to the play function that 
+			video.onended = endVideo;
 		}
 
-
-		function getScaleState() {
-			var scaleState = nScaleState;
-			if (forceActive[1] && forceTypes[1] >= 2) { // force blue
-				scaleState = -1;
-			} else if (forceActive[0] && forceTypes[0] >= 2) {
-				scaleState = 1;
-			}
-			return scaleState;
+		function readyToPlayVideo(event){ 
+		    videoContainer.scale = Math.min(
+		                         canvas.width / this.videoWidth, 
+		                         canvas.height / this.videoHeight); 
+		    videoContainer.ready = true;
+		    matchScreen = false;
+		    videoEnded = false;
 		}
 
-		function getSwitchRed() {
-			var switchRed = bSwitchRed;
-			if (forceActive[0] && forceTypes[0] != 2) { // force blue
-				switchRed = true;
-			} 
-			return switchRed;
+		function endVideo() {
+			videoEnded = true;
 		}
 
-		function getSwitchBlue() {
-			var switchBlue = bSwitchBlue;
-			if (forceActive[1] && forceTypes[1] != 2) { // force blue
-				switchBlue = true;
-			} 
-			return switchBlue;
-		}
+		function drawResultsScreen() {
+			ctx.drawImage(finalScoreImg, 0, 0);
 
-		function draw() {
-			ctx.drawImage(backgroundImg, 0, 0);
+			ctx.fillStyle = 'black';
+			ctx.font = 'bold 55pt Arial';
+			ctx.textAlign="center"; 
+			ctx.textBaseline="middle"; 
+			ctx.fillText('' + redScore, 643, 374);
+			ctx.fillText('' + blueScore, 1482 - 643, 374);
+
+			ctx.font = 'bold 25pt Arial';
 			ctx.fillStyle = 'white';
-			ctx.strokeStyle = 'black';
+			ctx.lineWidth=2;
+			ctx.textAlign="left"; 
 
+			var x = 630;
+			ctx.fillText('' + redAuto, x, 462 + 23);
+			ctx.strokeText('' + redAuto, x, 462 + 23);
+			ctx.fillText('' + redOwnership, x, 462 + 23 * 3);
+			ctx.strokeText('' + redOwnership, x, 462 + 23 * 3);
+			ctx.fillText('' + redVault, x, 462 + 23 * 5);
+			ctx.strokeText('' + redVault, x, 462 + 23 * 5);
+			ctx.fillText('' + redEndgame, x, 462 + 23 * 7);
+			ctx.strokeText('' + redEndgame, x, 462 + 23 * 7);
+			ctx.fillText('' + blueFoul, x, 462 + 23 * 9);
+			ctx.strokeText('' + blueFoul, x, 462 + 23 * 9);
+
+			ctx.textAlign="right"; 
+			x = 600;
+			ctx.fillText('AUTO-RUN', x, 462 + 23);
+			ctx.strokeText('AUTO-RUN', x, 462 + 23);
+			ctx.fillText('OWNERSHIP', x, 462 + 23 * 3);
+			ctx.strokeText('OWNERSHIP', x, 462 + 23 * 3);
+			ctx.fillText('VAULT', x, 462 + 23 * 5);
+			ctx.strokeText('VAULT', x, 462 + 23 * 5);
+			ctx.fillText('ENDGAME', x, 462 + 23 * 7);
+			ctx.strokeText('ENDGAME', x, 462 + 23 * 7);
+			ctx.fillText('BLUE FOUL', x, 462 + 23 * 9);
+			ctx.strokeText('BLUE FOUL', x, 462 + 23 * 9);
+
+			x = 1482 - 630;
+			ctx.textAlign="right"; 
+			ctx.fillText('' + blueAuto, x, 462 + 23);
+			ctx.strokeText('' + blueAuto, x, 462 + 23);
+			ctx.fillText('' + blueOwnership, x, 462 + 23 * 3);
+			ctx.strokeText('' + blueOwnership, x, 462 + 23 * 3);
+			ctx.fillText('' + blueVault, x, 462 + 23 * 5);
+			ctx.strokeText('' + blueVault, x, 462 + 23 * 5);
+			ctx.fillText('' + blueEndgame, x, 462 + 23 * 7);
+			ctx.strokeText('' + blueEndgame, x, 462 + 23 * 7);
+			ctx.fillText('' + redFoul, x, 462 + 23 * 9);
+			ctx.strokeText('' + redFoul, x, 462 + 23 * 9);
+
+			ctx.textAlign="left"; 
+			x = 1482 - 600;
+			ctx.fillText('AUTO-RUN', x, 462 + 23);
+			ctx.strokeText('AUTO-RUN', x, 462 + 23);
+			ctx.fillText('OWNERSHIP', x, 462 + 23 * 3);
+			ctx.strokeText('OWNERSHIP', x, 462 + 23 * 3);
+			ctx.fillText('VAULT', x, 462 + 23 * 5);
+			ctx.strokeText('VAULT', x, 462 + 23 * 5);
+			ctx.fillText('ENDGAME', x, 462 + 23 * 7);
+			ctx.strokeText('ENDGAME', x, 462 + 23 * 7);
+			ctx.fillText('RED FOUL', x, 462 + 23 * 9);
+			ctx.strokeText('RED FOUL', x, 462 + 23 * 9);
+
+			ctx.textAlign = "left";
+			x = 370;
+			ctx.fillText('' + redTeams[0], x, 260 + 33);
+			ctx.strokeText('' + redTeams[0], x, 260 + 33);
+			ctx.fillText('' + redTeams[1], x, 260 + 33 * 3);
+			ctx.strokeText('' + redTeams[1], x, 260 + 33 * 3);
+			ctx.fillText('' + redTeams[2], x, 260 + 33 * 5);
+			ctx.strokeText('' + redTeams[2], x, 260 + 33 * 5);
+
+			ctx.textAlign = "right";
+			x = 1482 - 370;
+			ctx.fillText('' + blueTeams[0], x, 260 + 33);
+			ctx.strokeText('' + blueTeams[0], x, 260 + 33);
+			ctx.fillText('' + blueTeams[1], x, 260 + 33 * 3);
+			ctx.strokeText('' + blueTeams[1], x, 260 + 33 * 3);
+			ctx.fillText('' + blueTeams[2], x, 260 + 33 * 5);
+			ctx.strokeText('' + blueTeams[2], x, 260 + 33 * 5);
+		}
+
+		function drawMatchScreen() {
+
+			// video feed
+			var scale = streamContainer.scale;
+			var vidH = streamContainer.video.videoHeight;
+			var vidW = streamContainer.video.videoWidth;
+			var top = 200;
+			var left = canvas.width / 2 - (vidW /2 ) * scale;
+			ctx.drawImage(streamContainer.video, left, top, vidW * scale, vidH * scale);
+			ctx.drawImage(backgroundImg, 0, 0);
+
+			// teams
+			ctx.lineWidth=2;
+			ctx.font = 'bold 18pt Arial';
+			ctx.textAlign="right"; 
+			ctx.textBaseline="middle";
+			ctx.fillStyle = 'black';
+			for (var i = 0; i < 3; i++) {
+				ctx.fillText('' + blueTeams[i], 550, 36 + 29 * i);
+			}
+			ctx.textAlign="left";
+			for (var i = 0; i < 3; i++) {
+				ctx.fillText('' + redTeams[i], 1482 - 550, 36 + 29 * i);
+			}
 			// scores
 			ctx.lineWidth=2;
 			ctx.font = 'bold 55pt Arial';
 			ctx.textAlign="center"; 
-			ctx.textBaseline="middle"; 
+			ctx.textBaseline="middle";
+			ctx.fillStyle = 'white';
+			ctx.strokeStyle = 'black'; 
 			ctx.fillText('' + blueScore, 654, 98);
 			ctx.strokeText('' + blueScore, 654, 98);
 			ctx.fillText('' + redScore, 1482 - 654, 98);
@@ -298,7 +537,8 @@
 			if (gameTime == 150) { 
 				ctx.fillStyle = 'red';
 			}
-			ctx.fillRect(568,15,342.0 * gameTime / 150,39);
+			var tempGameTime = gameTime < 0 ? 0 : gameTime;
+			ctx.fillRect(568,15,342.0 * tempGameTime / 150,39);
 
 			ctx.fillStyle = 'rgba(185, 185, 185, 0.7)'
 			ctx.beginPath();
@@ -344,6 +584,7 @@
 				var x = isRed ? 1482 - 397 : 397;
 
 				ctx.lineWidth = 3; 
+				console.log(type);
 				if (type != 1 && getScaleState() == (isRed ? 1 : -1)) {
 					ctx.beginPath();
 					ctx.arc(x, 42, 19, 0, 2 * Math.PI);
@@ -353,7 +594,7 @@
 
 				}
 
-				if (type != 2 && isRed ? getSwitchRed() : getSwitchBlue()) {
+				if (type != 2 && (isRed ? getSwitchRed() : getSwitchBlue())) {
 					ctx.beginPath();
 					ctx.arc(x, 2 * 78 - 42, 19, 0, 2 * Math.PI);
 					ctx.fill();
@@ -369,12 +610,57 @@
 				ctx.strokeText('' + (10 + time - gameTime), 1482 / 2, 98 - 15);
 
 			}
-			
 
-			
+		}
 
-			
 
+		function getTimeRemaining() {
+			if (gameTime < -3) {
+				return "";
+			} else if (gameTime < 0) {
+				return -gameTime;
+			} else if (gameTime < 15) {
+				return 15 - gameTime;
+			} else {
+				return 150 - gameTime;
+			}
+		}
+
+		function getColor(isRed, isOwned) {
+			if (!isOwned) {
+				return '#B9B9B9';
+			} else if (isRed) {
+				return '#BD160A';
+			} else {
+				return '#256AC5';
+			}
+		}
+
+
+		function getScaleState() {
+			var scaleState = nScaleState;
+			if (forceActive[1] && forceTypes[1] >= 2) { // force blue
+				scaleState = -1;
+			} else if (forceActive[0] && forceTypes[0] >= 2) {
+				scaleState = 1;
+			}
+			return scaleState;
+		}
+
+		function getSwitchRed() {
+			var switchRed = bSwitchRed;
+			if (forceActive[0] && forceTypes[0] != 2) { // force blue
+				switchRed = true;
+			} 
+			return switchRed;
+		}
+
+		function getSwitchBlue() {
+			var switchBlue = bSwitchBlue;
+			if (forceActive[1] && forceTypes[1] != 2) { // force blue
+				switchBlue = true;
+			} 
+			return switchBlue;
 		}
 
 	</script>

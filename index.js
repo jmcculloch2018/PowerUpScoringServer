@@ -4,8 +4,9 @@ var http = require('http').Server(app);
 var io = require('socket.io')(http);
 // game vars
 var running = false;
-var gameTime = 0;
+var gameTime = -4;
 var intervalObj;
+
 // ownership
 var redOwnershipScore = 0;
 var blueOwnershipScore = 0;
@@ -107,8 +108,8 @@ function update(clientSocket) {
 		redOwnershipScore += redOwnershipIncrement;
 	}
 
-  var redScore = getRedScore();
-  var blueScore = getBlueScore();
+  var redScore = getRedScore()[0];
+  var blueScore = getBlueScore()[0];
   console.log("Red:" + redScore);
   console.log("Blue:" + blueScore);
   io.emit("updateScores", redScore, blueScore, levitateUsed, levitateCubes, forceActive, forceTypes, forceTimes, forceCubes, boostActive, boostTypes, boostTimes, boostCubes, gameTime);
@@ -134,7 +135,7 @@ function getRedScore() {
     }
   }
   var redScore = redOwnershipScore + redVaultScore + redAutoScore + redEndgame + blueFoulPoints;
-  return redScore;
+  return [redScore, redAutoScore, redEndgame, redOwnershipScore, redVaultScore, redFoulPoints];
 }
 
 function getBlueScore() {
@@ -149,7 +150,7 @@ function getBlueScore() {
     }
   }
   var blueScore = blueOwnershipScore + blueVaultScore + blueAutoScore + blueEndgame + redFoulPoints;
-  return blueScore;
+  return [blueScore, blueAutoScore, blueEndgame, blueOwnershipScore, blueVaultScore, blueFoulPoints];
 }
 
 io.on('connection', function(clientSocket){
@@ -162,9 +163,22 @@ io.on('connection', function(clientSocket){
 
   clientSocket.on("start", function(data) {
     var str = data["gameString"];
-    
+    intervalObj = setInterval(() => {
+    	update(clientSocket);
+	   }, 1000);
+
+    io.emit("start", str);
+  });
+
+  clientSocket.on("finalize", function(data) {
+    var redScores = getRedScore();
+    var blueScores = getBlueScore();
+    io.emit("finalize", redScores[1], redScores[2], redScores[3], redScores[4], redScores[5], 
+      blueScores[1], blueScores[2], blueScores[3], blueScores[4], blueScores[5]);
+  });
+  clientSocket.on("reset", function(data) {
     // reset data
-    gameTime = 0;
+    gameTime = -4;
     running = true;
     redOwnershipScore = 0;
     blueOwnershipScore = 0;
@@ -193,19 +207,7 @@ io.on('connection', function(clientSocket){
 
     redCross = 0;
     blueCross = 0;
-
-    intervalObj = setInterval(() => {
-    	update(clientSocket);
-	   }, 1000);
-
-    io.emit("start", str);
-  });
-
-  clientSocket.on("finalize", function(data) {
-    // will eventually cause score to be displayed
-    console.log("Final Scores:");
-    console.log("Red:" + getRedScore());
-    console.log("Blue:" + getBlueScore());
+    io.emit("reset", data);
   });
 
   clientSocket.on("setSwitchRed", function(data) {
