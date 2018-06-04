@@ -10,12 +10,15 @@
 
    </script>
    <body>
-		<canvas id="myCanvas" width="1482" height="827" style = "margin:0px">
+		<canvas id="myCanvas" width="1482" height="1000" style = "margin:0px">
    </body>
    <script>
 		// global vars
 		var matchScreen = true;
 		var videoEnded = false;
+
+		var redAutoQuest = false;
+		var blueAutoQuest = false;
 
 		var gameTime = -4;
 		// teams
@@ -89,19 +92,21 @@
 	      	// draw();
 	    });
 
-	    socket.on('finalize',function(_redAuto, _redEndgame, _redOwnership, _redVault, _redFoul, _blueAuto, _blueEndgame, _blueOwnership, _blueVault, _blueFoul) {
+	    socket.on('finalize',function(_redAuto, _redEndgame, _redOwnership, _redVault, _redFoul, _redAutoQuest, _blueAuto, _blueEndgame, _blueOwnership, _blueVault, _blueFoul, _blueAutoQuest) {
 
 	      	redAuto = _redAuto;
 	      	redEndgame = _redEndgame;
 	      	redOwnership = _redOwnership;
 	      	redVault = _redVault;
 	      	redFoul = _redFoul;
+	      	redAutoQuest = _redAutoQuest;
 
 	      	blueAuto = _blueAuto;
 	      	blueEndgame = _blueEndgame;
 	      	blueOwnership = _blueOwnership;
 	      	blueVault = _blueVault;
 	      	blueFoul = _blueFoul;
+	      	blueAutoQuest = _blueAutoQuest;
 
 	      	redScore = redAuto + redVault + redOwnership + redEndgame + blueFoul;
 	      	blueScore = blueAuto + blueVault + blueOwnership + blueEndgame + redFoul;
@@ -144,12 +149,15 @@
 			redOwnership = 274;
 			redVault = 0;
 			redFoul = 0;
+			redAutoQuest = false;
 
 			blueAuto = 0;
 			blueEndgame = 0;
 			blueOwnership = 0;
 			blueVault = 0;
 			blueFoul = 0;
+			blueAutoQuest = false;
+
 			requestAnimationFrame(updateCanvas);
 
 	    });
@@ -238,14 +246,10 @@
 				ctx.clearRect(0,0,canvas.width,canvas.height); 
 				// console.log("something");
 			    if(videoContainer !== undefined && videoContainer.ready){ 
-			    	// if (video.paused) {
-			    	// 	video.play();
-			    	// 	// video.loop = false;
-			    	// }
 			        var scale = videoContainer.scale;
 			        var vidH = videoContainer.video.videoHeight;
 			        var vidW = videoContainer.video.videoWidth;
-			        var top = canvas.height / 2 - (vidH /2 ) * scale;
+			        var top = 0;
 			        var left = canvas.width / 2 - (vidW /2 ) * scale;
 			        ctx.drawImage(videoContainer.video, left, top, vidW * scale, vidH * scale);
 			    }
@@ -284,6 +288,22 @@
 		}
 
 		function drawResultsScreen() {
+			// win, auto quest, boss
+			ctx.fillStyle = getColor(true, redAutoQuest);
+			ctx.fillRect(195, 500, 125, 60);
+			ctx.fillStyle = getColor(true, redEndgame == 90);
+			ctx.fillRect(195, 560, 125, 60);
+			ctx.fillStyle = getColor(true, redScore > blueScore);
+			ctx.fillRect(195, 620, 125, 60);
+			
+			var x = 1482 - 125 - 195;
+			ctx.fillStyle = getColor(false, blueAutoQuest);
+			ctx.fillRect(x, 500, 125, 60);
+			ctx.fillStyle = getColor(false, blueEndgame == 90);
+			ctx.fillRect(x, 560, 125, 60);
+			ctx.fillStyle = getColor(false, redScore < blueScore);
+			ctx.fillRect(x, 620, 125, 60);
+
 			ctx.drawImage(finalScoreImg, 0, 0);
 
 			ctx.fillStyle = 'black';
@@ -349,23 +369,24 @@
 			ctx.fillText('RED FOUL', x, 462 + 23 * 9);
 			ctx.strokeText('RED FOUL', x, 462 + 23 * 9);
 
+			ctx.font = 'bold 35pt Arial';
 			ctx.textAlign = "left";
-			x = 370;
-			ctx.fillText('' + redTeams[0], x, 260 + 33);
-			ctx.strokeText('' + redTeams[0], x, 260 + 33);
-			ctx.fillText('' + redTeams[1], x, 260 + 33 * 3);
-			ctx.strokeText('' + redTeams[1], x, 260 + 33 * 3);
-			ctx.fillText('' + redTeams[2], x, 260 + 33 * 5);
-			ctx.strokeText('' + redTeams[2], x, 260 + 33 * 5);
+			x = 430;
+			ctx.fillText('' + redTeams[0], x, 260 + 50);
+			ctx.strokeText('' + redTeams[0], x, 260 + 50);
+			ctx.fillText('' + redTeams[1], x, 260 + 150);
+			ctx.strokeText('' + redTeams[1], x, 260 + 150);
+			ctx.fillText('' + redTeams[2], x - 190, 260 + 50);
+			ctx.strokeText('' + redTeams[2], x - 190, 260 + 50);
 
 			ctx.textAlign = "right";
-			x = 1482 - 370;
-			ctx.fillText('' + blueTeams[0], x, 260 + 33);
-			ctx.strokeText('' + blueTeams[0], x, 260 + 33);
-			ctx.fillText('' + blueTeams[1], x, 260 + 33 * 3);
-			ctx.strokeText('' + blueTeams[1], x, 260 + 33 * 3);
-			ctx.fillText('' + blueTeams[2], x, 260 + 33 * 5);
-			ctx.strokeText('' + blueTeams[2], x, 260 + 33 * 5);
+			x = 1482 - 430;
+			ctx.fillText('' + blueTeams[0], x, 260 + 50);
+			ctx.strokeText('' + blueTeams[0], x, 260 + 50);
+			ctx.fillText('' + blueTeams[1], x, 260 + 150);
+			ctx.strokeText('' + blueTeams[1], x, 260 + 150);
+			ctx.fillText('' + blueTeams[2], x + 190, 260 + 50);
+			ctx.strokeText('' + blueTeams[2], x + 190, 260 + 50);
 		}
 
 		function drawMatchScreen() {
@@ -630,7 +651,7 @@
 			if (!isOwned) {
 				return '#B9B9B9';
 			} else if (isRed) {
-				return '#BD160A';
+				return '#AE2B09';//#BD160A';
 			} else {
 				return '#256AC5';
 			}

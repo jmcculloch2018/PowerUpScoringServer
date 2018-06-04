@@ -6,7 +6,7 @@ var io = require('socket.io')(http);
 var running = false;
 var gameTime = -4;
 var intervalObj;
-
+var redAutoQuest = false, blueAutoQuest = false;
 // ownership
 var redOwnershipScore = 0;
 var blueOwnershipScore = 0;
@@ -108,6 +108,11 @@ function update(clientSocket) {
 		redOwnershipScore += redOwnershipIncrement;
 	}
 
+  if (gameTime == 15) {
+    redAutoQuest = bSwitchRed;
+    blueAutoQuest = bSwitchBlue;
+  }
+
   var redScore = getRedScore()[0];
   var blueScore = getBlueScore()[0];
   console.log("Red:" + redScore);
@@ -173,8 +178,8 @@ io.on('connection', function(clientSocket){
   clientSocket.on("finalize", function(data) {
     var redScores = getRedScore();
     var blueScores = getBlueScore();
-    io.emit("finalize", redScores[1], redScores[2], redScores[3], redScores[4], redScores[5], 
-      blueScores[1], blueScores[2], blueScores[3], blueScores[4], blueScores[5]);
+    io.emit("finalize", redScores[1], redScores[2], redScores[3], redScores[4], redScores[5], redAutoQuest && redCross == 3, 
+      blueScores[1], blueScores[2], blueScores[3], blueScores[4], blueScores[5], blueAutoQuest && blueCross == 3);
   });
   clientSocket.on("reset", function(data) {
     // reset data
@@ -207,6 +212,10 @@ io.on('connection', function(clientSocket){
 
     redCross = 0;
     blueCross = 0;
+
+    redAutoQuest = false;
+    blueAutoQuest = false;
+
     io.emit("reset", data);
   });
 
